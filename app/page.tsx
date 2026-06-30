@@ -2,24 +2,27 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
 export default async function Home() {
-  const { data: subjects, error } = await supabase
+  const { data: subjects } = await supabase
     .from('subjects')
     .select('id, name')
 
   return (
     <main style={{ padding: '40px', fontFamily: 'sans-serif', backgroundColor: '#ffffff', color: '#111111', minHeight: '100vh' }}>
-      <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '20px' }}>
-        Sua Yie
-      </h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+        <h1 style={{ fontSize: '28px', fontWeight: 'bold' }}>Sua Yie</h1>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <Link href="/login" style={{ padding: '8px 16px', border: '1px solid #ddd', borderRadius: '8px', textDecoration: 'none', color: '#111', fontSize: '14px' }}>
+            Log in
+          </Link>
+          <Link href="/signup" style={{ padding: '8px 16px', backgroundColor: '#111', color: '#fff', borderRadius: '8px', textDecoration: 'none', fontSize: '14px' }}>
+            Sign up
+          </Link>
+        </div>
+      </div>
+
       <p style={{ marginBottom: '20px', color: '#555' }}>
         Choose a subject to start practicing
       </p>
-
-      {error && <p style={{ color: 'red' }}>Error loading subjects: {error.message}</p>}
-
-      {subjects && subjects.length === 0 && (
-        <p>No subjects yet — add some in Supabase!</p>
-      )}
 
       <ul style={{ listStyle: 'none', padding: 0 }}>
         {subjects?.map((subject) => (

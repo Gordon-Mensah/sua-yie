@@ -14,6 +14,7 @@ type Question = {
   option_d: string
   correct_option: string
   explanation: string | null
+  topic_id: string
 }
 
 export default function TopicPage() {
@@ -24,6 +25,7 @@ export default function TopicPage() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [selected, setSelected] = useState<string | null>(null)
   const [score, setScore] = useState(0)
+  const [saved, setSaved] = useState(false)
 
   useEffect(() => {
     async function loadQuestions() {
@@ -31,11 +33,35 @@ export default function TopicPage() {
         .from('questions')
         .select('*')
         .eq('topic_id', topicId)
-
       if (data) setQuestions(data)
     }
     loadQuestions()
   }, [topicId])
+
+  const isFinished = currentIndex >= questions.length && questions.length > 0
+
+  useEffect(() => {
+    async function saveScore() {
+      if (!isFinished || saved) return
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: topic } = await supabase
+        .from('topics')
+        .select('subject_id')
+        .eq('id', topicId)
+        .single()
+
+      await supabase.from('sessions').insert({
+        user_id: user.id,
+        subject_id: topic?.subject_id,
+        score,
+        finished_at: new Date().toISOString(),
+      })
+      setSaved(true)
+    }
+    saveScore()
+  }, [isFinished])
 
   if (questions.length === 0) {
     return (
@@ -46,10 +72,9 @@ export default function TopicPage() {
   }
 
   const question = questions[currentIndex]
-  const isFinished = currentIndex >= questions.length
 
   function handleSelect(option: string) {
-    if (selected) return // already answered this one
+    if (selected) return
     setSelected(option)
     if (option === question.correct_option) {
       setScore((s) => s + 1)
@@ -80,20 +105,30 @@ export default function TopicPage() {
           <p style={{ marginTop: '12px', fontSize: '18px' }}>
             You scored {score} out of {questions.length}
           </p>
+          {saved && (
+            <p style={{ marginTop: '8px', color: '#555', fontSize: '14px' }}>
+              ✓ Score saved to your account
+            </p>
+          )}
+          <Link
+            href="/"
+            style={{ display: 'inline-block', marginTop: '20px', padding: '12px 24px', backgroundColor: '#111', color: '#fff', borderRadius: '8px', textDecoration: 'none' }}
+          >
+            Practice another subject
+          </Link>
         </div>
       ) : (
         <div style={{ marginTop: '24px' }}>
           <p style={{ color: '#777', marginBottom: '8px' }}>
             Question {currentIndex + 1} of {questions.length}
           </p>
-          <h1 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '20px' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '20px' }}>
             {question.question_text}
-          </h1>
+          </h2>
 
           {options.map((opt) => {
             const isCorrect = opt.key === question.correct_option
             const isSelected = opt.key === selected
-
             let backgroundColor = '#fff'
             if (selected) {
               if (isCorrect) backgroundColor = '#d4f7d4'
@@ -105,15 +140,10 @@ export default function TopicPage() {
                 key={opt.key}
                 onClick={() => handleSelect(opt.key)}
                 style={{
-                  display: 'block',
-                  width: '100%',
-                  textAlign: 'left',
-                  padding: '14px',
-                  marginBottom: '10px',
-                  border: '1px solid #ddd',
-                  borderRadius: '8px',
-                  backgroundColor,
-                  cursor: selected ? 'default' : 'pointer',
+                  display: 'block', width: '100%', textAlign: 'left',
+                  padding: '14px', marginBottom: '10px',
+                  border: '1px solid #ddd', borderRadius: '8px',
+                  backgroundColor, cursor: selected ? 'default' : 'pointer',
                   fontSize: '16px',
                 }}
               >
@@ -124,7 +154,7 @@ export default function TopicPage() {
 
           {selected && question.explanation && (
             <p style={{ marginTop: '12px', color: '#555', fontStyle: 'italic' }}>
-              {question.explanation}
+              💡 {question.explanation}
             </p>
           )}
 
@@ -132,14 +162,10 @@ export default function TopicPage() {
             <button
               onClick={handleNext}
               style={{
-                marginTop: '20px',
-                padding: '12px 24px',
-                backgroundColor: '#111',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '16px',
-                cursor: 'pointer',
+                marginTop: '20px', padding: '12px 24px',
+                backgroundColor: '#111', color: '#fff',
+                border: 'none', borderRadius: '8px',
+                fontSize: '16px', cursor: 'pointer',
               }}
             >
               Next question →
