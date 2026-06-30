@@ -20,7 +20,6 @@ type Question = {
 export default function TopicPage() {
   const params = useParams()
   const topicId = params.id as string
-
   const [questions, setQuestions] = useState<Question[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [selected, setSelected] = useState<string | null>(null)
@@ -28,36 +27,22 @@ export default function TopicPage() {
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    async function loadQuestions() {
-      const { data } = await supabase
-        .from('questions')
-        .select('*')
-        .eq('topic_id', topicId)
+    async function load() {
+      const { data } = await supabase.from('questions').select('*').eq('topic_id', topicId)
       if (data) setQuestions(data)
     }
-    loadQuestions()
+    load()
   }, [topicId])
 
-  const isFinished = currentIndex >= questions.length && questions.length > 0
+  const isFinished = questions.length > 0 && currentIndex >= questions.length
 
   useEffect(() => {
     async function saveScore() {
       if (!isFinished || saved) return
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-
-      const { data: topic } = await supabase
-        .from('topics')
-        .select('subject_id')
-        .eq('id', topicId)
-        .single()
-
-      await supabase.from('sessions').insert({
-        user_id: user.id,
-        subject_id: topic?.subject_id,
-        score,
-        finished_at: new Date().toISOString(),
-      })
+      const { data: topic } = await supabase.from('topics').select('subject_id').eq('id', topicId).single()
+      await supabase.from('sessions').insert({ user_id: user.id, subject_id: topic?.subject_id, score, finished_at: new Date().toISOString() })
       setSaved(true)
     }
     saveScore()
@@ -65,26 +50,14 @@ export default function TopicPage() {
 
   if (questions.length === 0) {
     return (
-      <main style={{ padding: '40px', fontFamily: 'sans-serif', color: '#111' }}>
-        <p>Loading questions...</p>
+      <main style={{ minHeight: '100vh', background: '#fafaf9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: '#666', fontSize: '15px' }}>Loading questions...</p>
       </main>
     )
   }
 
   const question = questions[currentIndex]
-
-  function handleSelect(option: string) {
-    if (selected) return
-    setSelected(option)
-    if (option === question.correct_option) {
-      setScore((s) => s + 1)
-    }
-  }
-
-  function handleNext() {
-    setSelected(null)
-    setCurrentIndex((i) => i + 1)
-  }
+  const progress = Math.round((currentIndex / questions.length) * 100)
 
   const options = [
     { key: 'A', text: question?.option_a },
@@ -93,86 +66,135 @@ export default function TopicPage() {
     { key: 'D', text: question?.option_d },
   ]
 
-  return (
-    <main style={{ padding: '40px', fontFamily: 'sans-serif', backgroundColor: '#fff', color: '#111', minHeight: '100vh', maxWidth: '600px' }}>
-      <Link href="/" style={{ color: '#555', textDecoration: 'none' }}>
-        ← Back to subjects
-      </Link>
+  function handleSelect(key: string) {
+    if (selected) return
+    setSelected(key)
+    if (key === question.correct_option) setScore(s => s + 1)
+  }
 
-      {isFinished ? (
-        <div style={{ marginTop: '24px' }}>
-          <h1 style={{ fontSize: '24px', fontWeight: 'bold' }}>Quiz complete!</h1>
-          <p style={{ marginTop: '12px', fontSize: '18px' }}>
+  function getOptionStyle(key: string) {
+    const base: React.CSSProperties = {
+      display: 'flex', alignItems: 'center', gap: '12px',
+      padding: '13px 14px', borderRadius: '8px', marginBottom: '8px',
+      border: '1px solid #ddd', background: '#fff', width: '100%',
+      textAlign: 'left', cursor: selected ? 'default' : 'pointer',
+    }
+    if (!selected) return base
+    if (key === question.correct_option) return { ...base, background: '#e8f5ee', border: '1px solid #006B3F' }
+    if (key === selected) return { ...base, background: '#fde8ea', border: '1px solid #CE1126' }
+    return { ...base, opacity: 0.5 }
+  }
+
+  function getKeyStyle(key: string): React.CSSProperties {
+    const base: React.CSSProperties = {
+      width: '28px', height: '28px', borderRadius: '50%',
+      background: '#f0f0f0', color: '#111',
+      fontSize: '13px', fontWeight: 500,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    }
+    if (!selected) return base
+    if (key === question.correct_option) return { ...base, background: '#006B3F', color: '#fff' }
+    if (key === selected) return { ...base, background: '#CE1126', color: '#fff' }
+    return base
+  }
+
+  if (isFinished) {
+    return (
+      <main style={{ minHeight: '100vh', background: '#fafaf9' }}>
+        <nav style={{ background: 'var(--green)', padding: '16px 24px' }}>
+          <span style={{ color: '#fff', fontSize: '18px', fontWeight: 500 }}>
+            Sua <span style={{ color: 'var(--gold)' }}>Yie</span>
+          </span>
+        </nav>
+        <div style={{ height: '4px', background: 'var(--gold)' }} />
+
+        <div style={{ padding: '40px 24px', textAlign: 'center' }}>
+          <div style={{
+            width: '90px', height: '90px', borderRadius: '50%',
+            background: '#e8f5ee', border: '3px solid #006B3F',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 20px',
+          }}>
+            <span style={{ fontSize: '22px', fontWeight: 500, color: '#006B3F' }}>
+              {score}/{questions.length}
+            </span>
+          </div>
+
+          <h1 style={{ fontSize: '22px', fontWeight: 500, color: '#111', marginBottom: '8px' }}>
+            Quiz complete!
+          </h1>
+          <p style={{ fontSize: '15px', color: '#444', marginBottom: '8px' }}>
             You scored {score} out of {questions.length}
           </p>
           {saved && (
-            <p style={{ marginTop: '8px', color: '#555', fontSize: '14px' }}>
+            <p style={{ fontSize: '13px', color: '#006B3F', marginBottom: '28px' }}>
               ✓ Score saved to your account
             </p>
           )}
+
           <Link
             href="/"
-            style={{ display: 'inline-block', marginTop: '20px', padding: '12px 24px', backgroundColor: '#111', color: '#fff', borderRadius: '8px', textDecoration: 'none' }}
+            style={{
+              display: 'block', padding: '14px 24px',
+              background: '#111', color: '#fff',
+              borderRadius: '8px', fontSize: '15px', fontWeight: 500,
+              maxWidth: '320px', margin: '0 auto',
+            }}
           >
             Practice another subject
           </Link>
         </div>
-      ) : (
-        <div style={{ marginTop: '24px' }}>
-          <p style={{ color: '#777', marginBottom: '8px' }}>
-            Question {currentIndex + 1} of {questions.length}
-          </p>
-          <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '20px' }}>
-            {question.question_text}
-          </h2>
+      </main>
+    )
+  }
 
-          {options.map((opt) => {
-            const isCorrect = opt.key === question.correct_option
-            const isSelected = opt.key === selected
-            let backgroundColor = '#fff'
-            if (selected) {
-              if (isCorrect) backgroundColor = '#d4f7d4'
-              else if (isSelected) backgroundColor = '#f7d4d4'
-            }
+  return (
+    <main style={{ minHeight: '100vh', background: '#fff' }}>
+      <nav style={{ background: 'var(--green)', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Link href="/" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '14px' }}>
+          ← Back
+        </Link>
+        <span style={{ color: 'var(--gold)', fontSize: '14px', fontWeight: 500 }}>
+          {currentIndex + 1} / {questions.length}
+        </span>
+      </nav>
 
-            return (
-              <button
-                key={opt.key}
-                onClick={() => handleSelect(opt.key)}
-                style={{
-                  display: 'block', width: '100%', textAlign: 'left',
-                  padding: '14px', marginBottom: '10px',
-                  border: '1px solid #ddd', borderRadius: '8px',
-                  backgroundColor, cursor: selected ? 'default' : 'pointer',
-                  fontSize: '16px',
-                }}
-              >
-                {opt.key}. {opt.text}
-              </button>
-            )
-          })}
+      <div style={{ height: '4px', background: '#eee' }}>
+        <div style={{ height: '4px', background: 'var(--green)', width: `${progress}%`, transition: 'width 0.3s ease' }} />
+      </div>
 
-          {selected && question.explanation && (
-            <p style={{ marginTop: '12px', color: '#555', fontStyle: 'italic' }}>
-              💡 {question.explanation}
-            </p>
-          )}
+      <div style={{ padding: '24px 16px', maxWidth: '600px', margin: '0 auto' }}>
+        <h2 style={{ fontSize: '18px', fontWeight: 500, color: '#111', lineHeight: 1.55, marginBottom: '22px' }}>
+          {question.question_text}
+        </h2>
 
-          {selected && (
-            <button
-              onClick={handleNext}
-              style={{
-                marginTop: '20px', padding: '12px 24px',
-                backgroundColor: '#111', color: '#fff',
-                border: 'none', borderRadius: '8px',
-                fontSize: '16px', cursor: 'pointer',
-              }}
-            >
-              Next question →
-            </button>
-          )}
-        </div>
-      )}
+        {options.map(opt => (
+          <button key={opt.key} onClick={() => handleSelect(opt.key)} style={getOptionStyle(opt.key)}>
+            <div style={getKeyStyle(opt.key)}>{opt.key}</div>
+            <span style={{ fontSize: '15px', color: '#111', fontWeight: 400 }}>{opt.text}</span>
+          </button>
+        ))}
+
+        {selected && question.explanation && (
+          <div style={{ marginTop: '14px', padding: '13px 14px', background: '#e8f5ee', borderRadius: '8px', fontSize: '14px', color: '#004D2E', lineHeight: 1.55 }}>
+            {question.explanation}
+          </div>
+        )}
+
+        {selected && (
+          <button
+            onClick={() => { setSelected(null); setCurrentIndex(i => i + 1) }}
+            style={{
+              marginTop: '20px', width: '100%', padding: '14px',
+              background: 'var(--green)', color: '#fff',
+              border: 'none', borderRadius: '8px',
+              fontSize: '15px', fontWeight: 500,
+            }}
+          >
+            Next question →
+          </button>
+        )}
+      </div>
     </main>
   )
 }

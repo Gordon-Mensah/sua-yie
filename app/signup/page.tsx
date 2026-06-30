@@ -7,9 +7,9 @@ import Link from 'next/link'
 
 export default function SignupPage() {
   const router = useRouter()
+  const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [fullName, setFullName] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -17,62 +17,52 @@ export default function SignupPage() {
     setLoading(true)
     setError('')
     const { data, error } = await supabase.auth.signUp({ email, password })
-    if (error) {
-      setError(error.message)
-      setLoading(false)
-      return
-    }
+    if (error) { setError(error.message); setLoading(false); return }
     if (data.user) {
-      await supabase.from('profiles').insert({
-        id: data.user.id,
-        full_name: fullName,
-      })
+      await supabase.from('profiles').insert({ id: data.user.id, full_name: fullName })
     }
     router.push('/')
-    setLoading(false)
   }
 
   return (
-    <main style={{ padding: '40px', fontFamily: 'sans-serif', backgroundColor: '#fff', color: '#111', minHeight: '100vh', maxWidth: '400px' }}>
-      <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>Create account</h1>
-      <p style={{ color: '#555', marginBottom: '24px' }}>Start practicing for free</p>
+    <main style={{ minHeight: '100vh', background: '#fafaf9' }}>
+      <nav style={{ background: 'var(--green)', padding: '16px 24px' }}>
+        <Link href="/" style={{ color: '#fff', fontSize: '18px', fontWeight: 500 }}>
+          Sua <span style={{ color: 'var(--gold)' }}>Yie</span>
+        </Link>
+      </nav>
+      <div style={{ height: '4px', background: 'var(--gold)' }} />
 
-      <input
-        type="text"
-        placeholder="Full name"
-        value={fullName}
-        onChange={(e) => setFullName(e.target.value)}
-        style={{ display: 'block', width: '100%', padding: '12px', marginBottom: '12px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '16px', boxSizing: 'border-box' }}
-      />
-      <input
-        type="email"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        style={{ display: 'block', width: '100%', padding: '12px', marginBottom: '12px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '16px', boxSizing: 'border-box' }}
-      />
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        style={{ display: 'block', width: '100%', padding: '12px', marginBottom: '12px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '16px', boxSizing: 'border-box' }}
-      />
+      <div style={{ padding: '40px 24px', maxWidth: '420px', margin: '0 auto' }}>
+        <h1 style={{ fontSize: '22px', fontWeight: 500, color: '#111', marginBottom: '6px' }}>Create account</h1>
+        <p style={{ fontSize: '14px', color: '#666', marginBottom: '28px' }}>Start practicing for free</p>
 
-      {error && <p style={{ color: 'red', marginBottom: '12px' }}>{error}</p>}
+        <input type="text" placeholder="Full name" value={fullName}
+          onChange={e => setFullName(e.target.value)}
+          style={{ display: 'block', width: '100%', padding: '13px 14px', marginBottom: '12px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '15px', color: '#111', background: '#fff' }}
+        />
+        <input type="email" placeholder="Email" value={email}
+          onChange={e => setEmail(e.target.value)}
+          style={{ display: 'block', width: '100%', padding: '13px 14px', marginBottom: '12px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '15px', color: '#111', background: '#fff' }}
+        />
+        <input type="password" placeholder="Password" value={password}
+          onChange={e => setPassword(e.target.value)}
+          style={{ display: 'block', width: '100%', padding: '13px 14px', marginBottom: '12px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '15px', color: '#111', background: '#fff' }}
+        />
 
-      <button
-        onClick={handleSignup}
-        disabled={loading}
-        style={{ display: 'block', width: '100%', padding: '14px', backgroundColor: '#111', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '16px', cursor: 'pointer', marginBottom: '16px' }}
-      >
-        {loading ? 'Creating account...' : 'Sign up'}
-      </button>
+        {error && <p style={{ color: '#CE1126', fontSize: '14px', marginBottom: '12px' }}>{error}</p>}
 
-      <p style={{ color: '#555' }}>
-        Already have an account?{' '}
-        <Link href="/login" style={{ color: '#111', fontWeight: 600 }}>Log in</Link>
-      </p>
+        <button onClick={handleSignup} disabled={loading}
+          style={{ display: 'block', width: '100%', padding: '14px', background: 'var(--green)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: 500, marginBottom: '18px' }}
+        >
+          {loading ? 'Creating account...' : 'Sign up'}
+        </button>
+
+        <p style={{ fontSize: '14px', color: '#555', textAlign: 'center' }}>
+          Already have an account?{' '}
+          <Link href="/login" style={{ color: 'var(--green)', fontWeight: 500 }}>Log in</Link>
+        </p>
+      </div>
     </main>
   )
 }
