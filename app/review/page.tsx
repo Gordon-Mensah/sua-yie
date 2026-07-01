@@ -54,7 +54,7 @@ export default function ReviewPage() {
         .order('created_at', { ascending: false })
         .limit(50)
 
-      if (data) setWrongAnswers(data as WrongAnswer[])
+      if (data) setWrongAnswers(data as unknown as WrongAnswer[])
       setLoading(false)
     }
     load()
