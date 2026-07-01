@@ -32,6 +32,21 @@ export default function RootLayout({
       </head>
       <body>
         {children}
+        <script dangerouslySetInnerHTML={{
+          __html: `
+            if ('serviceWorker' in navigator) {
+              window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                  .then(function(reg) {
+                    console.log('SW registered, scope:', reg.scope);
+                  })
+                  .catch(function(err) {
+                    console.log('SW registration failed:', err);
+                  });
+              });
+            }
+          `
+        }} />
       </body>
     </html>
   )
