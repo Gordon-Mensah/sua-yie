@@ -54,12 +54,35 @@ export default function SubjectPage() {
     e.preventDefault()
     e.stopPropagation()
     setDownloading(prev => ({ ...prev, [topicId]: true }))
+
     const { data } = await supabase
       .from('questions')
       .select('*')
       .eq('topic_id', topicId)
+
     if (data) {
       localStorage.setItem(`sua-yie-topic-${topicId}`, JSON.stringify(data))
+
+      if ('caches' in window) {
+        try {
+          const cache = await caches.open('sua-yie-v2-dynamic')
+          const urlsToCache = [
+            `/topics/${topicId}`,
+            `/topics/${topicId}?mode=practice`,
+            `/topics/${topicId}?mode=exam`,
+          ]
+          await Promise.all(
+            urlsToCache.map(url =>
+              fetch(url).then(res => {
+                if (res.ok) cache.put(url, res)
+              }).catch(() => {})
+            )
+          )
+        } catch (err) {
+          console.log('Cache pre-fetch error (non-fatal):', err)
+        }
+      }
+
       setDownloaded(prev => ({ ...prev, [topicId]: true }))
     }
     setDownloading(prev => ({ ...prev, [topicId]: false }))
