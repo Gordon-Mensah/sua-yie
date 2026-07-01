@@ -40,6 +40,14 @@ export default function AdminPage() {
   const [bulkMessage, setBulkMessage] = useState('')
   const [bulkLoading, setBulkLoading] = useState(false)
 
+  const [aiSubject, setAiSubject] = useState('')
+  const [aiTopic, setAiTopic] = useState('')
+  const [aiTopics, setAiTopics] = useState<Topic[]>([])
+  const [aiText, setAiText] = useState('')
+  const [aiMessage, setAiMessage] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiParsed, setAiParsed] = useState<any[]>([])
+
   useEffect(() => {
     if (unlocked) loadSubjects()
   }, [unlocked])
@@ -58,6 +66,13 @@ export default function AdminPage() {
         .then(({ data }) => { if (data) setBulkTopics(data) })
     }
   }, [bulkSubject])
+
+  useEffect(() => {
+    if (aiSubject) {
+      supabase.from('topics').select('id, name').eq('subject_id', aiSubject).order('name')
+        .then(({ data }) => { if (data) setAiTopics(data) })
+    }
+  }, [aiSubject])
 
   async function loadSubjects() {
     const { data } = await supabase.from('subjects').select('id, name').order('name')
@@ -184,6 +199,129 @@ export default function AdminPage() {
       setBulkText('')
     }
     setBulkLoading(false)
+  }
+
+  async function handleAIParse() {
+    if (!aiTopic || !aiText.trim()) return
+    setAiLoading(true)
+    setAiMessage('')
+    setAiParsed([])
+
+    try {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_GROQ_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'llama3-70b-8192',
+          temperature: 0.1,
+          messages: [
+            {
+              role: 'system',
+              content: `You are a question parser for a WASSCE/BECE exam prep app. Extract multiple choice questions from any text format provided.
+
+Return ONLY a valid JSON array with no extra text, no markdown, no code blocks. Each object must have exactly these fields:
+- question_text: string (the question)
+- option_a: string (option A text only, no letter prefix)
+- option_b: string (option B text only, no letter prefix)
+- option_c: string (option C text only, no letter prefix)
+- option_d: string (option D text only, no letter prefix)
+- correct_option: string (must be exactly "A", "B", "C", or "D")
+- explanation: string or null (explanation if available, otherwise null)
+
+Rules:
+- Remove any numbering from question text (e.g. "1." or "Q1:")
+- Remove letter prefixes from options (e.g. "A." or "a)" or "(a)")
+- correct_option must be uppercase single letter A, B, C, or D only
+- If you cannot determine the correct answer, skip that question
+- Only include questions that have exactly 4 options
+- Return empty array [] if no valid questions found`,
+            },
+            {
+              role: 'user',
+              content: `Parse these questions into JSON:\n\n${aiText}`,
+            },
+          ],
+        }),
+      })
+
+      const data = await response.json()
+      const content = data.choices?.[0]?.message?.content?.trim()
+
+      if (!content) {
+        setAiMessage('Error: No response from AI. Check your Groq API key.')
+        setAiLoading(false)
+        return
+      }
+
+      let parsed
+      try {
+        parsed = JSON.parse(content)
+      } catch {
+        const match = content.match(/\[[\s\S]*\]/)
+        if (match) {
+          parsed = JSON.parse(match[0])
+        } else {
+          setAiMessage('Error: AI returned unexpected format. Try again.')
+          setAiLoading(false)
+          return
+        }
+      }
+
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        setAiMessage('No questions found. Make sure your text contains multiple choice questions.')
+        setAiLoading(false)
+        return
+      }
+
+      const valid = parsed.filter(q =>
+        q.question_text && q.option_a && q.option_b && q.option_c && q.option_d &&
+        ['A', 'B', 'C', 'D'].includes(q.correct_option)
+      )
+
+      if (valid.length === 0) {
+        setAiMessage('Error: AI parsed questions but they were missing required fields. Try again.')
+        setAiLoading(false)
+        return
+      }
+
+      setAiParsed(valid)
+      setAiMessage(`✓ AI found ${valid.length} question${valid.length !== 1 ? 's' : ''}. Review below then click Import.`)
+    } catch {
+      setAiMessage('Error: Could not connect to Groq. Check your API key.')
+    }
+
+    setAiLoading(false)
+  }
+
+  async function handleAIImport() {
+    if (aiParsed.length === 0 || !aiTopic) return
+    setAiLoading(true)
+
+    const toInsert = aiParsed.map(q => ({
+      topic_id: aiTopic,
+      question_text: q.question_text,
+      option_a: q.option_a,
+      option_b: q.option_b,
+      option_c: q.option_c,
+      option_d: q.option_d,
+      correct_option: q.correct_option,
+      explanation: q.explanation || null,
+    }))
+
+    const { error } = await supabase.from('questions').insert(toInsert)
+
+    if (error) {
+      setAiMessage('Error saving: ' + error.message)
+    } else {
+      setAiMessage(`✓ Successfully imported ${toInsert.length} questions!`)
+      setAiParsed([])
+      setAiText('')
+    }
+
+    setAiLoading(false)
   }
 
   const inputStyle: React.CSSProperties = {
@@ -361,6 +499,100 @@ export default function AdminPage() {
           >
             {bulkLoading ? 'Importing...' : 'Import all questions'}
           </button>
+        </div>
+
+        <div style={sectionStyle}>
+          <h2 style={{ fontSize: '16px', fontWeight: 500, color: '#111', marginBottom: '6px' }}>
+            🤖 AI question import
+          </h2>
+          <p style={{ fontSize: '13px', color: '#666', marginBottom: '14px', lineHeight: 1.6 }}>
+            Paste questions in <strong>any format</strong> — copied from a website, PDF, textbook, anything. Groq AI will extract and format them automatically.
+          </p>
+
+          <label style={{ fontSize: '13px', color: '#555', display: 'block', marginBottom: '4px' }}>Subject</label>
+          <select style={inputStyle} value={aiSubject} onChange={e => { setAiSubject(e.target.value); setAiTopic('') }}>
+            <option value="">Select a subject</option>
+            {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+
+          <label style={{ fontSize: '13px', color: '#555', display: 'block', marginBottom: '4px' }}>Topic</label>
+          <select style={inputStyle} value={aiTopic} onChange={e => setAiTopic(e.target.value)} disabled={!aiSubject}>
+            <option value="">Select a topic</option>
+            {aiTopics.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+
+          <label style={{ fontSize: '13px', color: '#555', display: 'block', marginBottom: '4px' }}>
+            Paste your questions here (any format)
+          </label>
+          <textarea
+            style={{ ...inputStyle, minHeight: '200px', resize: 'vertical', fontSize: '13px' }}
+            placeholder={`Paste questions in any format, e.g:\n\n1. What is the capital of Ghana?\na) Kumasi  b) Accra  c) Tamale  d) Cape Coast\nAnswer: b\n\nOR:\n\nWhich of the following is NOT a prime number?\nA. 2  B. 3  C. 4  D. 5\nCorrect: C\nExplanation: 4 is divisible by 2...`}
+            value={aiText}
+            onChange={e => setAiText(e.target.value)}
+          />
+
+          {aiMessage && (
+            <div style={{ padding: '10px 14px', background: aiMessage.startsWith('Error') ? '#fde8ea' : '#e8f5ee', borderRadius: '8px', fontSize: '14px', color: aiMessage.startsWith('Error') ? '#7a0010' : '#004D2E', marginBottom: '12px', fontWeight: 500 }}>
+              {aiMessage}
+            </div>
+          )}
+
+          <button
+            style={{ ...btnStyle(), width: '100%', padding: '13px', fontSize: '15px', marginBottom: '16px' }}
+            onClick={handleAIParse}
+            disabled={aiLoading || !aiTopic || !aiText.trim()}
+          >
+            {aiLoading ? '🤖 Parsing with AI...' : '🤖 Parse with AI'}
+          </button>
+
+          {aiParsed.length > 0 && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <p style={{ fontSize: '14px', fontWeight: 500, color: '#111' }}>
+                  {aiParsed.length} question{aiParsed.length !== 1 ? 's' : ''} found — review before importing:
+                </p>
+                <button
+                  style={{ ...btnStyle('#111'), padding: '8px 16px', fontSize: '13px' }}
+                  onClick={handleAIImport}
+                  disabled={aiLoading}
+                >
+                  {aiLoading ? 'Saving...' : `Import all ${aiParsed.length}`}
+                </button>
+              </div>
+
+              {aiParsed.map((q, i) => (
+                <div key={i} style={{ background: '#fafaf9', border: '0.5px solid #ddd', borderRadius: '8px', padding: '14px', marginBottom: '10px' }}>
+                  <p style={{ fontSize: '14px', fontWeight: 500, color: '#111', marginBottom: '8px' }}>
+                    {i + 1}. {q.question_text}
+                  </p>
+                  {['A', 'B', 'C', 'D'].map(key => (
+                    <p key={key} style={{
+                      fontSize: '13px', padding: '4px 8px', borderRadius: '4px', marginBottom: '3px',
+                      background: key === q.correct_option ? '#e8f5ee' : 'transparent',
+                      color: key === q.correct_option ? '#004D2E' : '#555',
+                      fontWeight: key === q.correct_option ? 500 : 400,
+                    }}>
+                      {key}. {key === 'A' ? q.option_a : key === 'B' ? q.option_b : key === 'C' ? q.option_c : q.option_d}
+                      {key === q.correct_option && ' ✓'}
+                    </p>
+                  ))}
+                  {q.explanation && (
+                    <p style={{ fontSize: '12px', color: '#666', marginTop: '6px', fontStyle: 'italic' }}>
+                      💡 {q.explanation}
+                    </p>
+                  )}
+                </div>
+              ))}
+
+              <button
+                style={{ ...btnStyle('#111'), width: '100%', padding: '13px', fontSize: '15px' }}
+                onClick={handleAIImport}
+                disabled={aiLoading}
+              >
+                {aiLoading ? 'Saving...' : `Import all ${aiParsed.length} questions`}
+              </button>
+            </div>
+          )}
         </div>
 
       </div>
