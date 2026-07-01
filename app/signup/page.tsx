@@ -10,19 +10,31 @@ export default function SignupPage() {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [examType, setExamType] = useState<'wassce' | 'bece' | ''>('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   async function handleSignup() {
+    if (!examType) { setError('Please select your exam type.'); return }
     setLoading(true)
     setError('')
     const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) { setError(error.message); setLoading(false); return }
     if (data.user) {
-      await supabase.from('profiles').insert({ id: data.user.id, full_name: fullName })
+      await supabase.from('profiles').insert({
+        id: data.user.id,
+        full_name: fullName,
+        exam_type: examType,
+      })
     }
     router.push('/')
   }
+
+  const examCardStyle = (active: boolean): React.CSSProperties => ({
+    flex: 1, padding: '16px', border: active ? '2px solid var(--green)' : '1.5px solid #ddd',
+    borderRadius: '10px', textAlign: 'center', cursor: 'pointer',
+    background: active ? '#e8f5ee' : '#fff',
+  })
 
   return (
     <main style={{ minHeight: '100vh', background: '#fafaf9' }}>
@@ -36,6 +48,22 @@ export default function SignupPage() {
       <div style={{ padding: '40px 24px', maxWidth: '420px', margin: '0 auto' }}>
         <h1 style={{ fontSize: '22px', fontWeight: 500, color: '#111', marginBottom: '6px' }}>Create account</h1>
         <p style={{ fontSize: '14px', color: '#666', marginBottom: '28px' }}>Start practicing for free</p>
+
+        <label style={{ fontSize: '13px', color: '#555', display: 'block', marginBottom: '8px', fontWeight: 500 }}>
+          Which exam are you preparing for?
+        </label>
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+          <div style={examCardStyle(examType === 'wassce')} onClick={() => setExamType('wassce')}>
+            <div style={{ fontSize: '20px', marginBottom: '4px' }}>🎓</div>
+            <div style={{ fontSize: '15px', fontWeight: 500, color: '#111' }}>WASSCE</div>
+            <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>Senior High School</div>
+          </div>
+          <div style={examCardStyle(examType === 'bece')} onClick={() => setExamType('bece')}>
+            <div style={{ fontSize: '20px', marginBottom: '4px' }}>📚</div>
+            <div style={{ fontSize: '15px', fontWeight: 500, color: '#111' }}>BECE</div>
+            <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>Junior High School</div>
+          </div>
+        </div>
 
         <input type="text" placeholder="Full name" value={fullName}
           onChange={e => setFullName(e.target.value)}
@@ -53,7 +81,7 @@ export default function SignupPage() {
         {error && <p style={{ color: '#CE1126', fontSize: '14px', marginBottom: '12px' }}>{error}</p>}
 
         <button onClick={handleSignup} disabled={loading}
-          style={{ display: 'block', width: '100%', padding: '14px', background: 'var(--green)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: 500, marginBottom: '18px' }}
+          style={{ display: 'block', width: '100%', padding: '14px', background: 'var(--green)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: 500, marginBottom: '18px', cursor: 'pointer' }}
         >
           {loading ? 'Creating account...' : 'Sign up'}
         </button>

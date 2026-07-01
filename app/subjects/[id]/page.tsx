@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import Navbar from '../../components/Navbar'
+import { redirect } from 'next/navigation'
 
 export default async function SubjectPage({
   params,
@@ -11,6 +12,9 @@ export default async function SubjectPage({
 }) {
   const { id } = await params
   const { mode = 'practice' } = await searchParams
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
   const { data: topics } = await supabase
     .from('topics')
