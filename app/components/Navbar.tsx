@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import PWAInstall from './PWAInstall'
+
 
 export default function Navbar() {
   const router = useRouter()
@@ -73,6 +75,7 @@ export default function Navbar() {
         )}
       </nav>
       <div style={{ height: '4px', background: 'var(--gold)' }} />
+      <PWAInstall />
     </>
   )
 }

@@ -38,12 +38,17 @@ export default function TopicPage() {
   const [timedOut, setTimedOut] = useState(false)
 
   useEffect(() => {
-    async function load() {
-      const { data } = await supabase.from('questions').select('*').eq('topic_id', topicId)
-      if (data) setQuestions(data)
-    }
-    load()
-  }, [topicId])
+      async function load() {
+        const cached = localStorage.getItem(`sua-yie-topic-${topicId}`)
+        if (cached) {
+          setQuestions(JSON.parse(cached))
+          return
+        }
+        const { data } = await supabase.from('questions').select('*').eq('topic_id', topicId)
+        if (data) setQuestions(data)
+      }
+      load()
+    }, [topicId])
 
   const isFinished = questions.length > 0 && currentIndex >= questions.length
 
