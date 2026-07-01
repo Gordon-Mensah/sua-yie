@@ -10,7 +10,7 @@ type Session = {
   id: string
   score: number
   finished_at: string
-  subjects: { name: string } | null
+  subjects: { name: string } | { name: string }[] | null
 }
 
 export default function Dashboard() {

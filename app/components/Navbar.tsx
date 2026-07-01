@@ -43,8 +43,11 @@ export default function Navbar() {
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             {userName ? (
               <>
+                <Link href="/leaderboard" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '14px', fontWeight: 500 }}>
+                🏆
+                </Link>
                 <Link href="/dashboard" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '14px', fontWeight: 500 }}>
-                  Hi, {userName.split(' ')[0]}
+                Hi, {userName.split(' ')[0]}
                 </Link>
                 <button
                   onClick={handleLogout}
