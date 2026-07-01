@@ -36,19 +36,20 @@ export default function TopicPage() {
   const [saved, setSaved] = useState(false)
   const [timeLeft, setTimeLeft] = useState(TIME_PER_QUESTION)
   const [timedOut, setTimedOut] = useState(false)
+  const [wrongAnswers, setWrongAnswers] = useState<{ questionId: string; selectedOption: string }[]>([])
 
   useEffect(() => {
-      async function load() {
-        const cached = localStorage.getItem(`sua-yie-topic-${topicId}`)
-        if (cached) {
-          setQuestions(JSON.parse(cached))
-          return
-        }
-        const { data } = await supabase.from('questions').select('*').eq('topic_id', topicId)
-        if (data) setQuestions(data)
+    async function load() {
+      const cached = localStorage.getItem(`sua-yie-topic-${topicId}`)
+      if (cached) {
+        setQuestions(JSON.parse(cached))
+        return
       }
-      load()
-    }, [topicId])
+      const { data } = await supabase.from('questions').select('*').eq('topic_id', topicId)
+      if (data) setQuestions(data)
+    }
+    load()
+  }, [topicId])
 
   const isFinished = questions.length > 0 && currentIndex >= questions.length
 
@@ -78,14 +79,30 @@ export default function TopicPage() {
       if (!isFinished || saved) return
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data: topic } = await supabase.from('topics').select('subject_id').eq('id', topicId).single()
-      await supabase.from('sessions').insert({
-        user_id: user.id,
-        subject_id: topic?.subject_id,
-        score,
-        mode,
-        finished_at: new Date().toISOString()
-      })
+
+      const { data: topic } = await supabase
+        .from('topics').select('subject_id').eq('id', topicId).single()
+
+      const { data: sessionData } = await supabase
+        .from('sessions').insert({
+          user_id: user.id,
+          subject_id: topic?.subject_id,
+          score,
+          mode,
+          finished_at: new Date().toISOString()
+        }).select().single()
+
+      if (sessionData && wrongAnswers.length > 0) {
+        await supabase.from('wrong_answers').insert(
+          wrongAnswers.map(wa => ({
+            user_id: user.id,
+            question_id: wa.questionId,
+            session_id: sessionData.id,
+            selected_option: wa.selectedOption,
+          }))
+        )
+      }
+
       setSaved(true)
     }
     saveScore()
@@ -117,7 +134,14 @@ export default function TopicPage() {
   function handleSelect(key: string) {
     if (selected || timedOut) return
     setSelected(key)
-    if (key === question.correct_option) setScore(s => s + 1)
+    if (key === question.correct_option) {
+      setScore(s => s + 1)
+    } else {
+      setWrongAnswers(prev => [...prev, {
+        questionId: question.id,
+        selectedOption: key,
+      }])
+    }
   }
 
   function getOptionStyle(key: string): React.CSSProperties {
@@ -163,14 +187,53 @@ export default function TopicPage() {
         <Navbar />
         <div style={{ height: '4px', background: 'var(--gold)' }} />
         <div style={{ padding: '40px 24px', maxWidth: '480px', margin: '0 auto', textAlign: 'center' }}>
-          <div style={{ width: '90px', height: '90px', borderRadius: '50%', background: '#e8f5ee', border: '3px solid #006B3F', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-            <span style={{ fontSize: '22px', fontWeight: 500, color: '#006B3F' }}>{score}/{questions.length}</span>
+          <div style={{
+            width: '90px', height: '90px', borderRadius: '50%',
+            background: '#e8f5ee', border: '3px solid #006B3F',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 20px'
+          }}>
+            <span style={{ fontSize: '22px', fontWeight: 500, color: '#006B3F' }}>
+              {score}/{questions.length}
+            </span>
           </div>
-          <h1 style={{ fontSize: '22px', fontWeight: 500, color: '#111', marginBottom: '8px' }}>Quiz complete!</h1>
-          <p style={{ fontSize: '16px', color: '#444', marginBottom: '4px' }}>You scored {score} out of {questions.length} ({percentage}%)</p>
-          <p style={{ fontSize: '14px', color: '#006B3F', fontWeight: 500, marginBottom: '8px' }}>{feedback}</p>
-          {saved && <p style={{ fontSize: '13px', color: '#888', marginBottom: '28px' }}>✓ Score saved to your account</p>}
-          <Link href="/" style={{ display: 'block', padding: '14px 24px', background: '#111', color: '#fff', borderRadius: '8px', fontSize: '15px', fontWeight: 500, maxWidth: '320px', margin: '0 auto' }}>
+          <h1 style={{ fontSize: '22px', fontWeight: 500, color: '#111', marginBottom: '8px' }}>
+            Quiz complete!
+          </h1>
+          <p style={{ fontSize: '16px', color: '#444', marginBottom: '4px' }}>
+            You scored {score} out of {questions.length} ({percentage}%)
+          </p>
+          <p style={{ fontSize: '14px', color: '#006B3F', fontWeight: 500, marginBottom: '8px' }}>
+            {feedback}
+          </p>
+          {saved && (
+            <p style={{ fontSize: '13px', color: '#888', marginBottom: '16px' }}>
+              ✓ Score saved to your account
+            </p>
+          )}
+          {wrongAnswers.length > 0 && (
+            <Link
+              href="/review"
+              style={{
+                display: 'block', padding: '13px 24px',
+                background: '#FEF9E6', color: '#7A5800',
+                border: '1px solid #FCD116',
+                borderRadius: '8px', fontSize: '15px', fontWeight: 500,
+                maxWidth: '320px', margin: '0 auto 12px',
+              }}
+            >
+              Review {wrongAnswers.length} wrong answer{wrongAnswers.length !== 1 ? 's' : ''} ✏️
+            </Link>
+          )}
+          <Link
+            href="/"
+            style={{
+              display: 'block', padding: '13px 24px',
+              background: '#111', color: '#fff',
+              borderRadius: '8px', fontSize: '15px', fontWeight: 500,
+              maxWidth: '320px', margin: '0 auto',
+            }}
+          >
             Practice another subject
           </Link>
         </div>
@@ -180,7 +243,10 @@ export default function TopicPage() {
 
   return (
     <main style={{ minHeight: '100vh', background: '#fff' }}>
-      <nav style={{ background: 'var(--green)', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <nav style={{
+        background: 'var(--green)', padding: '12px 16px',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+      }}>
         <Link href="/" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '14px' }}>← Back</Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {isExamMode && (
@@ -235,7 +301,15 @@ export default function TopicPage() {
         )}
 
         {(selected || timedOut) && (
-          <button onClick={moveNext} style={{ marginTop: '20px', width: '100%', padding: '14px', background: 'var(--green)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: 500, cursor: 'pointer' }}>
+          <button
+            onClick={moveNext}
+            style={{
+              marginTop: '20px', width: '100%', padding: '14px',
+              background: 'var(--green)', color: '#fff',
+              border: 'none', borderRadius: '8px',
+              fontSize: '15px', fontWeight: 500, cursor: 'pointer',
+            }}
+          >
             Next question →
           </button>
         )}

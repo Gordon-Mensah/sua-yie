@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import PWAInstall from './PWAInstall'
 
-
 export default function Navbar() {
   const router = useRouter()
   const [userName, setUserName] = useState<string | null>(null)
@@ -36,7 +35,10 @@ export default function Navbar() {
 
   return (
     <>
-      <nav style={{ background: 'var(--green)', padding: '14px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <nav style={{
+        background: 'var(--green)', padding: '14px 24px',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+      }}>
         <Link href="/" style={{ color: '#fff', fontSize: '20px', fontWeight: 500, letterSpacing: '-0.02em' }}>
           Sua <span style={{ color: 'var(--gold)' }}>Yie</span>
         </Link>
@@ -51,12 +53,20 @@ export default function Navbar() {
                 <Link href="/progress" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '16px' }}>
                   📈
                 </Link>
+                <Link href="/review" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '16px' }}>
+                  ✏️
+                </Link>
                 <Link href="/dashboard" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '14px', fontWeight: 500 }}>
                   Hi, {userName.split(' ')[0]}
                 </Link>
                 <button
                   onClick={handleLogout}
-                  style={{ padding: '7px 14px', borderRadius: '7px', border: '1.5px solid rgba(255,255,255,0.55)', color: '#fff', fontSize: '14px', fontWeight: 500, background: 'transparent' }}
+                  style={{
+                    padding: '7px 14px', borderRadius: '7px',
+                    border: '1.5px solid rgba(255,255,255,0.55)',
+                    color: '#fff', fontSize: '14px', fontWeight: 500,
+                    background: 'transparent', cursor: 'pointer'
+                  }}
                 >
                   Log out
                 </button>
