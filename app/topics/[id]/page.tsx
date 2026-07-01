@@ -23,6 +23,11 @@ const TIME_PER_QUESTION = 60
 export default function TopicPage() {
   const params = useParams()
   const topicId = params.id as string
+  const searchParams = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search)
+    : new URLSearchParams()
+  const mode = searchParams.get('mode') || 'practice'
+  const isExamMode = mode === 'exam'
 
   const [questions, setQuestions] = useState<Question[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -50,11 +55,11 @@ export default function TopicPage() {
   }, [])
 
   useEffect(() => {
-    if (isFinished || selected || questions.length === 0) return
+    if (!isExamMode || isFinished || selected || questions.length === 0) return
     if (timeLeft <= 0) { setTimedOut(true); return }
     const timer = setTimeout(() => setTimeLeft(t => t - 1), 1000)
     return () => clearTimeout(timer)
-  }, [timeLeft, selected, isFinished, questions.length])
+  }, [timeLeft, selected, isFinished, questions.length, isExamMode])
 
   useEffect(() => {
     if (timedOut) {
@@ -69,7 +74,13 @@ export default function TopicPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       const { data: topic } = await supabase.from('topics').select('subject_id').eq('id', topicId).single()
-      await supabase.from('sessions').insert({ user_id: user.id, subject_id: topic?.subject_id, score, finished_at: new Date().toISOString() })
+      await supabase.from('sessions').insert({
+        user_id: user.id,
+        subject_id: topic?.subject_id,
+        score,
+        mode,
+        finished_at: new Date().toISOString()
+      })
       setSaved(true)
     }
     saveScore()
@@ -140,7 +151,7 @@ export default function TopicPage() {
 
   if (isFinished) {
     const percentage = Math.round((score / questions.length) * 100)
-    const feedback = percentage >= 80 ? 'Excellent work!' : percentage >= 60 ? 'Good effort — keep practicing.' : 'Keep going, you\'ll improve!'
+    const feedback = percentage >= 80 ? 'Excellent work!' : percentage >= 60 ? 'Good effort — keep practicing.' : "Keep going, you'll improve!"
 
     return (
       <main style={{ minHeight: '100vh', background: '#fafaf9' }}>
@@ -166,9 +177,16 @@ export default function TopicPage() {
     <main style={{ minHeight: '100vh', background: '#fff' }}>
       <nav style={{ background: 'var(--green)', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Link href="/" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '14px' }}>← Back</Link>
-        <span style={{ color: 'var(--gold)', fontSize: '14px', fontWeight: 500 }}>
-          {currentIndex + 1} / {questions.length}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {isExamMode && (
+            <span style={{ fontSize: '12px', background: 'rgba(255,255,255,0.15)', color: '#fff', padding: '3px 10px', borderRadius: '10px' }}>
+              ⏱ Exam
+            </span>
+          )}
+          <span style={{ color: 'var(--gold)', fontSize: '14px', fontWeight: 500 }}>
+            {currentIndex + 1} / {questions.length}
+          </span>
+        </div>
       </nav>
 
       <div style={{ height: '4px', background: '#eee' }}>
@@ -176,16 +194,17 @@ export default function TopicPage() {
       </div>
 
       <div style={{ padding: '16px', maxWidth: '600px', margin: '0 auto' }}>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <span style={{ fontSize: '13px', color: '#888' }}>Time remaining</span>
-          <span style={{ fontSize: '14px', fontWeight: 600, color: timerColor }}>
-            {timeLeft}s
-          </span>
-        </div>
-        <div style={{ height: '6px', background: '#eee', borderRadius: '3px', marginBottom: '20px' }}>
-          <div style={{ height: '6px', background: timerColor, borderRadius: '3px', width: `${timerPercent}%`, transition: 'width 1s linear, background 0.5s ease' }} />
-        </div>
+        {isExamMode && (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <span style={{ fontSize: '13px', color: '#888' }}>Time remaining</span>
+              <span style={{ fontSize: '14px', fontWeight: 600, color: timerColor }}>{timeLeft}s</span>
+            </div>
+            <div style={{ height: '6px', background: '#eee', borderRadius: '3px', marginBottom: '20px' }}>
+              <div style={{ height: '6px', background: timerColor, borderRadius: '3px', width: `${timerPercent}%`, transition: 'width 1s linear, background 0.5s ease' }} />
+            </div>
+          </>
+        )}
 
         {timedOut && (
           <div style={{ padding: '12px 14px', background: '#fff3cd', border: '1px solid #FCD116', borderRadius: '8px', marginBottom: '16px', fontSize: '14px', color: '#7A5800', fontWeight: 500 }}>

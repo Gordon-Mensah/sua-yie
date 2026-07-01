@@ -16,6 +16,7 @@ export default function AdminPage() {
   const [topics, setTopics] = useState<Topic[]>([])
 
   const [newSubject, setNewSubject] = useState('')
+  const [newSubjectExamType, setNewSubjectExamType] = useState('both')
   const [newTopic, setNewTopic] = useState('')
   const [selectedSubjectForTopic, setSelectedSubjectForTopic] = useState('')
 
@@ -66,9 +67,9 @@ export default function AdminPage() {
   async function handleAddSubject() {
     if (!newSubject.trim()) return
     setLoading(true)
-    const { error } = await supabase.from('subjects').insert({ name: newSubject.trim() })
+    const { error } = await supabase.from('subjects').insert({ name: newSubject.trim(), exam_type: newSubjectExamType })
     if (error) { setMessage('Error: ' + error.message) }
-    else { setMessage(`Subject "${newSubject}" added!`); setNewSubject(''); loadSubjects() }
+    else { setMessage(`Subject "${newSubject}" added!`); setNewSubject(''); setNewSubjectExamType('both'); loadSubjects() }
     setLoading(false)
   }
 
@@ -107,7 +108,7 @@ export default function AdminPage() {
     setLoading(false)
   }
 
-  const inputStyle = {
+  const inputStyle: React.CSSProperties = {
     display: 'block', width: '100%', padding: '11px 13px',
     border: '1px solid #ddd', borderRadius: '8px',
     fontSize: '15px', color: '#111', background: '#fff',
@@ -167,6 +168,12 @@ export default function AdminPage() {
         <div style={sectionStyle}>
           <h2 style={{ fontSize: '16px', fontWeight: 500, color: '#111', marginBottom: '14px' }}>Add a subject</h2>
           <input style={inputStyle} placeholder="e.g. Core Mathematics" value={newSubject} onChange={e => setNewSubject(e.target.value)} />
+          <label style={{ fontSize: '13px', color: '#555', display: 'block', marginBottom: '4px' }}>Exam type</label>
+          <select style={inputStyle} value={newSubjectExamType} onChange={e => setNewSubjectExamType(e.target.value)}>
+            <option value="both">Both WASSCE & BECE</option>
+            <option value="wassce">WASSCE only</option>
+            <option value="bece">BECE only</option>
+          </select>
           <button style={btnStyle()} onClick={handleAddSubject} disabled={loading}>Add subject</button>
         </div>
 
@@ -198,7 +205,7 @@ export default function AdminPage() {
           <label style={{ fontSize: '13px', color: '#555', display: 'block', marginBottom: '4px' }}>Question</label>
           <textarea style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }} placeholder="Type the question here..." value={questionText} onChange={e => setQuestionText(e.target.value)} />
 
-          {['A', 'B', 'C', 'D'].map(key => (
+          {(['A', 'B', 'C', 'D'] as const).map(key => (
             <div key={key}>
               <label style={{ fontSize: '13px', color: '#555', display: 'block', marginBottom: '4px' }}>Option {key}</label>
               <input style={inputStyle} placeholder={`Option ${key}`}
