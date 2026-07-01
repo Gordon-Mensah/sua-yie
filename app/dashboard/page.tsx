@@ -93,7 +93,7 @@ export default function Dashboard() {
           <div key={session.id} style={{ background: '#fff', border: '0.5px solid #ddd', borderRadius: '10px', padding: '14px 16px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <p style={{ fontSize: '15px', fontWeight: 500, color: '#111', marginBottom: '4px' }}>
-                {session.subjects?.name || 'Unknown subject'}
+                {Array.isArray(session.subjects) ? session.subjects[0]?.name : session.subjects?.name || 'Unknown subject'}
               </p>
               <p style={{ fontSize: '13px', color: '#888' }}>
                 {new Date(session.finished_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
